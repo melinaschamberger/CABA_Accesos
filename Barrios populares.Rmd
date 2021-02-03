@@ -1,0 +1,202 @@
+---
+title: "Proyecto_"
+author: "Melina"
+date: "6/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+*1. Cargo librerias. *
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(sf)
+library(ggmap)
+library(leaflet)
+library(modeest)
+library(plotly)
+
+```
+
+
+*2. Cargo datos. *
+~ /Barrios populares/: Capa que contiene el registro de los denominados barrios populares de la Ciudad Autonoma de Buenos Aires. Dichos barrios son considerados las zonas precarias y vulnerables.
+~ /Comunas/: Comunas de la Ciudad incluyendo los barrios que la componen.
+~ /Radios/: Informacion censal por radios. Relaciona barrios con comuna y brinda informacion demografica. 
+```{r}
+barrios_populares <- st_read("https://cdn.buenosaires.gob.ar/datosabiertos/datasets/desarrollo-humano-y-habitat/barrios-populares/barrios_populares_badata_WGS84.geojson")
+comunas <- st_read("https://cdn.buenosaires.gob.ar/datosabiertos/datasets/comunas/CABA_comunas.geojson")
+radios <- st_read("http://cdn.buenosaires.gob.ar/datosabiertos/datasets/informacion-censal-por-radio/CABA_rc.geojson")
+```
+
+*3.Consulta de datos.*
+```{r}
+glimpse(barrios_populares)
+
+colnames(barrios_populares)
+```
+
+*4.Indago en variable tipo de asentamiento.*
+```{r}
+unique(barrios_populares$TIPO_ASENT)
+
+```
+
+*5.Creo nueva variable donde codifico tipo de asentamiento.*
+Me permite tener variable numeric de tipo de asentamiento, lo que facilita el ploteo y el análisis.
+```{r}
+barrios_populares <- barrios_populares %>%
+  mutate(asentamiento = case_when(TIPO_ASENT == "Asentamientos precarios" ~ "6",
+                                  TIPO_ASENT == "Villas" ~ "5",
+                                  TIPO_ASENT == "Núcleos Habitacionales Transitorios" ~ "4",
+                                  TIPO_ASENT == "Conjunto Habitacional" ~ "3",
+                                  TIPO_ASENT == "Barrios municipales" ~ "2",
+                                  TIPO_ASENT == "Barrio Urbanizado" ~ "1",
+                                  TIPO_ASENT == "NA" ~ "0"))
+
+
+colnames(barrios_populares)
+```
+
+*6.Cambio a variable numerica.*
+```{r}
+class(barrios_populares$asentamiento)
+
+barrios_populares$asentamiento <- as.numeric(barrios_populares$asentamiento)
+
+```
+*7. Indago variable en sus medidas de posición.*
+~Distribución sesgada (mediana vs media), por peso de barrios municipales (2).
+~Moda: Villas. 
+~No hay registros de Núcleos Habitacionales Transitorios.
+```{r}
+
+table(barrios_populares$asentamiento)
+
+filter(barrios_populares, asentamiento == "4")
+
+summary(barrios_populares$asentamiento)
+
+mean(barrios_populares$asentamiento, na.rm = T)
+
+mfv(barrios_populares$asentamiento, na_rm = T)
+
+```
+
+*8.Creo pequenio df con valores porcentuales de cada tipo de asentamiento*
+°Valores con mayor presencia:
+#40% Barrios municipales (2)
+#47% Villas (5)
+```{r}
+table(barrios_populares$asentamiento)
+
+proporcion_asentamiento <- read.table(text = "tipo freq
+  Barrio_Urbanizado 31
+  Barrios_municipales 365
+  Conjunto_Habitacional 25
+  Villas 427
+  Asentamientos_precarios 60", 
+                        header =TRUE)
+proporcion_asentamiento$prob <- prop.table(proporcion_asentamiento$freq)
+
+view(proporcion_asentamiento)
+```
+
+
+*9. Ploteo el mapa para ver donde estan*
+#Detecta la geometria de los barrios, pero no la ubica en el mapa. 
+```{r}
+
+ggplot() + 
+  geom_sf(data = barrios_populares)
+
+```
+
+*10. Pruebo agregando mapa de las comunas*
+#comunas solo lo plotea bien. Radios solo lo plotea bien.
+```{r}
+
+ggplot() + 
+  geom_sf(data = comunas)
+
+ggplot() + 
+  geom_sf(data = radios)
+
+ggplot() + 
+  geom_sf(data = comunas) +
+  geom_sf(data = barrios_populares, aes(color = TIPO_ASENT))
+
+```
+
+
+*11.Pruebo otro tipo de grafico.*
+#Sigue sin ubicar las geometrias en el mapa de CABA. 
+```{r}
+plot(st_geometry(barrios_populares), graticule=st_crs(barrios_populares$geometry), col="black", border=NA, axes=TRUE)
+```
+
+*12. Indago la variable geometry*
+```{r}
+class(barrios_populares)
+
+class(barrios_populares$geometry)
+
+class(barrios_populares$geometry[[1]])
+```
+
+*13. Pruebo graficando variable numerica de tipo de asentamiento.*
+#Sigue habiendo problemas con el mapa. 
+```{r}
+ggplot() + 
+    geom_sf(data = barrios_populares, aes(fill = asentamiento), color = NA) +
+    labs(fill = "Tipo de asentamiento")
+
+```
+*14. Indago la superficie de los barrios. Filtro barrios mayores a 5000.*
+```{r}
+barrios_populares %>% 
+    filter(Superficie > 5000) 
+```
+*15. Ploteo los barrios con mayor superficie.*
+#Se llega a ver que se trata mayormente de barrios urbanizados, barrios municipales y algo de villas. 
+```{r}
+barrios_populares %>% 
+    filter(Superficie > 20000) %>%
+ggplot() + 
+    geom_sf(aes(fill = TIPO_ASENT), color = NA) +
+    labs(title = "Barrios populares con mayor superficie",
+         fill = "Tipo de asentamiento")
+```
+
+*16. Vuelvo a probar graficando los barrios mediante puntos.*
+#Sigue habiendo problemas en el mapeo de los barrios. 
+```{r}
+ggplot(data = barrios_populares) +
+  geom_sf() + 
+  stat_sf_coordinates(mapping = aes(color= TIPO_ASENT),
+  data = NULL,
+  position = "identity",
+  na.rm = FALSE,
+  show.legend = NA,
+  inherit.aes = TRUE,
+  fun.geometry = NULL)
+```
+
+
+*17.Grafico de barras con cantidad de barrios.*
+#Asi solo no dice nada, habria que relacionarlo con el barrio, la comuna, etc.
+```{r}
+ggplot()+
+  geom_bar(data = barrios_populares, show.legend = F,
+           mapping = aes(x = TIPO_ASENT, y = asentamiento, fill= TIPO_ASENT),
+           stat = "identity") +
+          labs(title = "Tipos de asentamiento en Barrios populares",
+               x = "Tipo de asentamiento",
+               y= "Frecuencia absoluta")
+
+```
+
+
