@@ -1,0 +1,514 @@
+---
+title: "Hacinamiento de hogares en vivienda por año y por comuna// Hogares en situación de pobreza e indigencia"
+author: "Melina"
+date: "7/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+
+
+*1.Cargo librerias*
+```{r}
+library(tidyverse)
+library(data.table)
+library(gganimate)
+library(plotly)
+library(highcharter)
+library(lubridate)
+library(gifski)
+library(modeest)
+library(ggplot2)
+library(viridis)
+library(hrbrthemes)
+library(patchwork)
+library(htmlwidgets)
+
+```
+
+
+*2. Cargo los datos*
+###Hacinamiento###
+#Datos de 2010-2018.
+#Distribución porcentual de los hogares por hacinamiento de hogares en vivienda por año y por comuna. Fuente EAH (DGEyC-GCBA).
+
+```{r}
+hacinamiento <- read.csv("https://cdn.buenosaires.gob.ar/datosabiertos/datasets/vivienda-durable-calidad-constructiva/hacinamiento.csv", encoding = "UTF-8")
+
+```
+
+*3.Indago datos*. 
+```{r}
+str(hacinamiento)
+
+```
+
+*4.Replico variable comuna volviendola continua, para poder filtrar en el grafico. Además, vuelvo númerica la variable año.*
+```{r}
+hacinamiento <- hacinamiento %>%
+  mutate(num_comuna = comunas)
+
+hacinamiento$num_comuna <- as.numeric(hacinamiento$num_comuna)
+
+class(hacinamiento$num_comuna)
+
+
+hacinamiento$año <- as.numeric(hacinamiento$año)
+
+class(hacinamiento$año)
+
+```
+
+*5. Renombro variables para facilitar su uso y mejorar presentación en gráficos.*
+#Recordar que: 
+#Sin Hacinamiento implicas menos de 2 personas por cuarto.
+#Hacinamiento no crítico implica de 2 a 3 personas por cuarto. 
+#Hacinamiento crítico implica más de 3 personas por cuarto. 
+```{r}
+hacinamiento <- hacinamiento %>%
+  rename("Sin_hacinamiento" = "Sin.hacinamiento.menos.de.2.personas.por.cuarto.",
+         "Hacinamiento_no_critico" = "Hacinamiento.no.crítico..2.a.3.personas.por.cuarto.",
+         "Hacinamiento_critico" = "Hacinamiento.crítico..más.de.3.personas.por.cuarto.")
+
+hacinamiento <- hacinamiento %>%
+  rename("Año" = "año",
+         "Comunas" = "comunas")
+
+hacinamiento <- hacinamiento %>%
+  rename("Numero_comuna" = "num_comuna")
+
+colnames(hacinamiento)
+```
+
+*6. Indago medidas de posicion de las variables.*
+
+```{r}
+
+summary(hacinamiento)
+
+```
+
+*7. Creo DF con total de hacinamiento anual*.
+#Se observa que la tendencia creciente en la variable sin hacinamiento, en detrimento del hacinamiento no crítico. En cuanto al hacinamiento crítico, se mantiene estable en el tiempo (aunque incrementó notablemente en el año 2015).
+```{r}
+#Nuevo DF: TOTAL_HACINAMIENTO
+
+Total_hacinamiento <- hacinamiento %>%
+  filter(Comunas == "Total")
+
+
+```
+
+
+*8. Gráfico de evolución de hacinamiento critico en comunas 1-7 por año.*
+#Nota: gráfico con todas las comunas juntas no quedaba ordenado, por eso decidí partirlo en dos. También podría partirse siguiendo cierto patrón. 
+```{r}
+
+colnames(hacinamiento)
+
+  Ganimado <- hacinamiento %>%
+  filter(Numero_comuna <= 7) %>%
+    ggplot(aes(x= Año, y= Hacinamiento_critico, colour = Comunas)) +
+  theme(plot.title = element_text(color="#993333", 
+                                           size= 14, 
+                                           face="bold"))+
+  geom_line(size = 1) +
+  scale_color_brewer(palette = "Dark2" )  +
+  labs( x= "Año", 
+        y= "Distribucion porcentual de hacinamiento critico",
+        subtitle = "Existencia de más de 3 personas por cuarto.",
+        title = "Tendencia de evolución de hacinamiento crítico anual (2010-2018)",
+        caption  = "Fuente EAH (DGEyC-GCBA)") +
+  facet_wrap(~Comunas) +
+  transition_reveal(Año)
+
+HACCritico_1_7 <- animate(Ganimado, duration = 10, fps = 10, width =500, height =500, renderer = gifski_renderer())
+
+HACCritico_1_7
+
+anim_save("C:/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Evolucion_HC_1-7.gif")
+
+```
+
+
+*9. Gráfico de evolución de hacinamiento critico en comunas 8-15 por año.*
+#Observar que existen comunas con datos faltantes. 
+```{r}
+Ganimado2 <- hacinamiento %>%
+  filter(Numero_comuna >= 8) %>%
+    ggplot(aes(x= Año, y= Hacinamiento_critico, colour = Comunas)) +
+  theme(plot.title = element_text(color="#993333", 
+                                           size= 14, 
+                                           face="bold"))+
+  geom_line(size = 1) +
+  scale_color_brewer(palette = "Dark2" )  +
+  labs( x= "Año", 
+        y= "Distribucion porcentual de hacinamiento critico",
+        subtitle = "Existencia de más de 3 personas por cuarto.",
+        title = "Tendencia de evolución de hacinamiento crítico anual (2010-2018)",
+        caption  = "Fuente EAH (DGEyC-GCBA)") +
+  facet_wrap(~Comunas) +
+  transition_reveal(Año)
+
+
+HACCritico_8_15 <- animate(Ganimado2, duration = 10, fps = 10, width =500, height =500, renderer = gifski_renderer())
+
+HACCritico_8_15
+
+anim_save("C:/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Evolucion_HC_8-15.gif")
+
+```
+
+
+*10.También se puede hacer el mismo gráfico por comuna*.
+#Habría que repetirlo cambiando el número de comuna. 
+```{r}
+Ganimado3 <- hacinamiento %>%
+  filter(Numero_comuna == 1) %>%
+    ggplot(aes(x= Año, y= Hacinamiento_critico, colour = Comunas))+
+  theme(legend.position = "none",
+        plot.title = element_text(color="#993333", 
+                                           size= 14, 
+                                           face="bold"))+
+  geom_line(size = 1) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs( x= "Año", 
+        y= "Distribucion porcentual de hacinamiento critico",
+        subtitle = "Comuna 1: Barrios de Retiro, San Nicolás, Puerto Madero, San Telmo, Monserrat y Constitución.",
+        title = "Tendencia de evolución de hacinamiento crítico anual (2010-2018)",
+        caption  = "Fuente EAH (DGEyC-GCBA)") +
+  transition_reveal(Año)
+
+
+HACCritico_Comuna1 <- animate(Ganimado3, duration = 10, fps = 10, width =500, height =500, renderer = gifski_renderer())
+
+HACCritico_Comuna1
+
+anim_save("C:/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Evolucion_HC_Comuna-1.gif")
+
+```
+
+*11. Verifico cuál es la comuna con mayor valor de hacinamiento no critico.*
+#La comuna 4 tuvo mayor hacinamiento no crítico en el año 2013.
+#La comuna 8 tuvo mayor hacinamiento crítico en los años 2017-2018.
+```{r}
+max(hacinamiento$Hacinamiento_no_critico, na.rm = T)
+
+maximo_nocritico<- filter(hacinamiento, Hacinamiento_no_critico > 22)
+
+maximo_nocritico
+
+max(hacinamiento$Hacinamiento_critico, na.rm = T)
+
+maximo_critico <- filter(hacinamiento, Hacinamiento_critico > 6)
+
+maximo_critico
+
+```
+
+
+*12.Grafico hacinamiento no critico anual* 
+#Previamente indagué evolución de hacinamiento crítico. Aquí indago evolución de hacinamiento NO crítico, por año, en gráfico de barras. Podemos elegir cualquiera de las dos opciones para mostrar (lineal o de barras).
+#2010
+```{r}
+
+Nocritico_2010 <- hacinamiento %>%
+  filter(Año == 2010) %>%
+  filter(Comunas != "Total") %>%
+  ggplot() +
+  aes(x= reorder(Comunas, -Hacinamiento_no_critico), 
+      y= Hacinamiento_no_critico, 
+      fill= Comunas) +
+  geom_bar(stat = 'identity', 
+           position = "dodge") +
+            scale_fill_manual(values = c("#aceef3", "#ffe9e4", "#ffb067", "#ff7077", "#e93f67", 
+                                         "#7bac9d", "#cccccc", "#c6c8ee", "#bbb6df", "#bd6b73",
+                                         "#a30b37", "#feffc1", "#ffb4ed", "#239a97", "#ffa1a1")) +
+            labs(title = "Hacinamiento no crítico (CABA, 2010)",
+                 subtitle = "Existencia de 2 o 3 personas por cuarto.",
+              x= "Comuna", 
+              y= "Promedio anual de cantidad registrada" + 
+                coord_flip()) +
+                theme_light() +
+                theme(legend.position="none",
+                      plot.title = element_text(color="#993333", 
+                                           size= 14, 
+                                           face="bold")) +
+                ylab("Promedio anual de cantidad registrada (en %)")
+
+
+Nocritico_2010 <- ggplotly(Nocritico_2010)
+
+
+htmlwidgets::saveWidget(Nocritico_2010,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/HNC_2010_BArras.html",
+                        selfcontained = F)
+
+
+```
+
+#2011
+```{r}
+Nocritico_2011 <- hacinamiento %>%
+  filter(Año == 2011) %>%
+  filter(Comunas != "Total") %>%
+  ggplot() +
+  aes(x= reorder(Comunas, -Hacinamiento_no_critico), 
+      y= Hacinamiento_no_critico, 
+      fill= Comunas) +
+  geom_bar(stat = 'identity', 
+           position = "dodge") +
+            scale_fill_manual(values = c("#aceef3", "#ffe9e4", "#ffb067", "#ff7077", "#e93f67", 
+                                         "#7bac9d", "#cccccc", "#c6c8ee", "#bbb6df", "#bd6b73",
+                                         "#a30b37", "#feffc1", "#ffb4ed", "#239a97", "#ffa1a1")) +
+            labs(title = "Hacinamiento no crítico (CABA, 2011)",
+                 subtitle = "Existencia de 2 o 3 personas por cuarto.",
+              x= "Comuna", 
+              y= "Promedio anual de cantidad registrada" + 
+                coord_flip()) +
+                theme_light() +
+                theme(legend.position="none",
+                      plot.title = element_text(color="#993333", 
+                                           size= 14, 
+                                           face="bold")) +
+                ylab("Promedio anual de cantidad registrada (en %)")
+
+
+Nocritico_2011 <- ggplotly(Nocritico_2011)
+
+
+htmlwidgets::saveWidget(Nocritico_2011,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/HNC_2011_BArras.html",
+                        selfcontained = F)
+```
+
+
+*13. Pruebo grafico Hacinamiento crítico total con barras*
+```{r}
+
+TOTAL_barras <- Total_hacinamiento  %>%
+  ggplot() +
+  aes(x= reorder(Año, -Hacinamiento_no_critico), 
+      y= Hacinamiento_no_critico,
+      fill= Hacinamiento_no_critico) +
+  geom_bar(stat = 'identity', 
+           position = "dodge")+
+            labs(title = "Hacinamiento no crítico (CABA, 2011)",
+                 subtitle = "Existencia de 2 o 3 personas por cuarto.",
+              x= "Año", 
+              y= "Promedio anual de cantidad registrada" + 
+                coord_flip()) +
+                theme_light() +
+                theme(legend.position="none",
+                      plot.title = element_text(color="#993333", 
+                                           size= 14, 
+                                           face="bold")) +
+                ylab("Promedio anual de cantidad registrada (en %)")
+
+TOTAL_barras
+
+
+TOTAL_barras <- ggplotly(TOTAL_barras)
+
+
+htmlwidgets::saveWidget(TOTAL_barras,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/HNC_TOTAL_BArras.html",
+                        selfcontained = F)
+
+
+```
+
+
+*14.Grafico lineal de Hacinamiento no critico*
+
+```{r}
+
+colnames(hacinamiento)
+
+
+Evolucion_HNC <- hchart(hacinamiento, "line", 
+                        hcaes(x = Año, y= Hacinamiento_no_critico, 
+             group = Comunas)) %>%
+               hc_title(text = "Hacinamiento no crítico por comuna")%>%
+  hc_subtitle(text = "Ciudad Autónoma de Buenos Aires (2010-2018)")%>%
+  hc_yAxis(title = list(text = "Hacinamiento no crítico (en %)"),
+           labels = list(format = "{value}%")) %>%
+                hc_credits(enabled = TRUE, text = "Fuente EAH (DGEyC-GCBA)", style = list(fontSize = "12px"))%>%
+                hc_add_theme(hc_theme_ffx())
+              
+      
+Evolucion_HNC
+
+htmlwidgets::saveWidget(Evolucion_HNC,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/HNC_Evolucion.html",
+                        selfcontained = F)
+
+
+
+```
+
+
+*15.Grafico lineal de Hacinamiento critico*
+```{r}
+Evolucion_HC <- hchart(hacinamiento, "line", 
+                        hcaes(x = Año, y= Hacinamiento_critico, 
+             group = Comunas)) %>%
+               hc_title(text = "Hacinamiento crítico por comuna")%>%
+  hc_subtitle(text = "Ciudad Autónoma de Buenos Aires (2010-2018)")%>%
+  hc_yAxis(title = list(text = "Hacinamiento crítico (en %)"),
+           labels = list(format = "{value}%")) %>%
+                hc_credits(enabled = TRUE, text = "Fuente EAH (DGEyC-GCBA)", style = list(fontSize = "12px"))%>%
+                hc_add_theme(hc_theme_ffx())
+
+Evolucion_HC
+
+htmlwidgets::saveWidget(Evolucion_HC,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/HC_Evolucion.html",
+                        selfcontained = F)
+```
+
+
+
+###Pobreza###
+#Datos de 2015-2019
+#Distribución porcentual de los hogares y personas no pobres, pobres e indigentes. Fuente EAH (DGEC-GCBA)
+
+*A. Cargo los datos*
+```{r}
+Pobreza <- read.csv("https://cdn.buenosaires.gob.ar/datosabiertos/datasets/hogares-vulnerables/hogares-en-situacion-de-pobreza-por-trimestre.csv", encoding = "UTF-8")
+
+
+```
+
+
+*B. Indago los datos*
+```{r}
+str(Pobreza)
+
+colnames(Pobreza)
+```
+
+*C. Renombro variables para facilitar su uso y mejorar presentación en gráficos.*
+
+```{r}
+
+Pobreza <- Pobreza %>%
+  rename("Año" = "año",
+         "Trimestre" = "trimestre",
+         "Indigencia" = "En.situación.de.indigencia",
+         "Pobreza_no_Indigente" = "En.situación.de.pobreza.no.indigente",
+         "No_pobreza" = "No.pobres")
+
+colnames(Pobreza)
+
+```
+
+*D. Creo nueva variable con Pobreza+Indigencia*
+```{r}
+
+Pobreza <- Pobreza %>%
+  mutate("Pobreza_total" = Indigencia + Pobreza_no_Indigente)
+
+```
+
+*E. Creo nueva DF con media de pobreza e indigencia por año*
+#Pobreza_anual: Promedio de Pobres, Indigentes y No pobres por año (2015-2019)
+```{r}
+#Nuevo DF: POBREZA_ANUAL
+
+Pobreza_anual <- Pobreza %>%
+  group_by(Año) %>%
+  summarise(mean_pob = mean(Pobreza_no_Indigente),
+            mean_ind = mean(Indigencia),
+            mean_NBS = mean(No_pobreza),
+            mean_pobtotal = sum(mean_pob, mean_ind))
+
+
+```
+
+
+*F.Renombro datos de variable trimestre*
+```{r}
+
+unique(Pobreza$Trimestre)
+
+Pobreza <- Pobreza %>%
+  mutate(TRIM = case_when(
+    Trimestre == "2015-01" ~ "1",
+    Trimestre == "2015-02" ~ "2",
+    Trimestre == "2015-03" ~ "3",
+    Trimestre == "2015-04" ~ "4",
+    Trimestre == "2016-01" ~ "1",
+    Trimestre == "2016-02" ~ "2",
+    Trimestre == "2016-03" ~ "3",
+    Trimestre == "2016-04" ~ "4",
+    Trimestre == "2017-01" ~ "1",
+    Trimestre == "2017-02" ~ "2",
+    Trimestre == "2017-03" ~ "3",
+    Trimestre == "2017-04" ~ "4",
+    Trimestre == "2018-01" ~ "1",
+    Trimestre == "2018-02" ~ "2",
+    Trimestre == "2018-03" ~ "3",
+    Trimestre == "2018-04" ~ "4",
+    Trimestre == "2019-01" ~ "1"))
+
+class(Pobreza$TRIM)
+
+Pobreza$TRIM <- as.numeric(Pobreza$TRIM)
+
+class(Pobreza$TRIM)
+
+```
+
+*F. Grafico evolución de pobreza+indigencia*
+```{r}
+
+colnames(Pobreza)
+
+
+Evolucion_POB2 <- hchart(Pobreza, "bar", hcaes(x = Año, y = Pobreza_total, group = TRIM))  %>% hc_add_theme(hc_theme_gridlight()) %>%
+               hc_title(text = "Personas en situación de Pobreza e Indigencia, por año y trimestre.")%>%
+  hc_subtitle(text = "Ciudad Autónoma de Buenos Aires (2015-2019)")%>%
+  hc_yAxis(title = list(text = "Situación de pobreza (en %)"),
+           labels = list(format = "{value}%")) %>%
+                hc_credits(enabled = TRUE, text = "Fuente EAH (DGEyC-GCBA)", style = list(fontSize = "12px"))%>%
+                hc_add_theme(hc_theme_google())
+
+
+Evolucion_POB2
+
+htmlwidgets::saveWidget(Evolucion_POB2,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/PobrezaTotal_Evolucion.html",
+                        selfcontained = F)
+
+
+```
+
+
+*G. Grafico la tendencia de pobreza e indigencia, por separado.*
+```{r}
+
+losdos <- highchart() %>%
+  hc_add_series(Pobreza_anual, "line", hcaes(x = Año, y = mean_pob), name = "Pobreza") %>%
+  hc_add_series(Pobreza_anual, "line", hcaes(x = Año, y = mean_ind), name = "Indigencia") %>% 
+hc_add_theme(hc_theme_google()) %>%
+               hc_title(text = "Evolución de Pobreza e Indigencia.")%>%
+  hc_subtitle(text = "Promedio anual. Ciudad Autónoma de Buenos Aires (2015-2019)")%>%
+  hc_yAxis(title = list(text = "Situación de pobreza e indigencia"),
+           labels = list(format = "{value}%")) %>%
+                hc_credits(enabled = TRUE, text = "Fuente EAH (DGEyC-GCBA)", style = list(fontSize = "12px"))
+
+losdos
+
+htmlwidgets::saveWidget(losdos,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/POBIND_Evolucion.html",
+                        selfcontained = F)
+
+```
+
+
