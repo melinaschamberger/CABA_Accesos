@@ -247,7 +247,7 @@ Nocritico_2010 <- ggplotly(Nocritico_2010)
 
 htmlwidgets::saveWidget(Nocritico_2010,
                         "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/HNC_2010_BArras.html",
-                        selfcontained = F)
+                        selfcontained = T)
 
 
 ```
@@ -284,7 +284,7 @@ Nocritico_2011 <- ggplotly(Nocritico_2011)
 
 htmlwidgets::saveWidget(Nocritico_2011,
                         "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/HNC_2011_BArras.html",
-                        selfcontained = F)
+                        selfcontained = T)
 ```
 
 
@@ -318,7 +318,7 @@ TOTAL_barras <- ggplotly(TOTAL_barras)
 
 htmlwidgets::saveWidget(TOTAL_barras,
                         "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/HNC_TOTAL_BArras.html",
-                        selfcontained = F)
+                        selfcontained = T)
 
 
 ```
@@ -346,7 +346,7 @@ Evolucion_HNC
 
 htmlwidgets::saveWidget(Evolucion_HNC,
                         "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/HNC_Evolucion.html",
-                        selfcontained = F)
+                        selfcontained = T)
 
 
 
@@ -369,7 +369,7 @@ Evolucion_HC
 
 htmlwidgets::saveWidget(Evolucion_HC,
                         "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/HC_Evolucion.html",
-                        selfcontained = F)
+                        selfcontained = T)
 ```
 
 
@@ -484,7 +484,7 @@ Evolucion_POB2
 
 htmlwidgets::saveWidget(Evolucion_POB2,
                         "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/PobrezaTotal_Evolucion.html",
-                        selfcontained = F)
+                        selfcontained = T)
 
 
 ```
@@ -507,7 +507,7 @@ losdos
 
 htmlwidgets::saveWidget(losdos,
                         "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/POBIND_Evolucion.html",
-                        selfcontained = F)
+                        selfcontained = T)
 
 ```
 
