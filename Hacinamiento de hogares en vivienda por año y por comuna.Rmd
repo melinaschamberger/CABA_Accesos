@@ -28,6 +28,10 @@ library(viridis)
 library(hrbrthemes)
 library(patchwork)
 library(htmlwidgets)
+library(sf)
+library(ggmap)
+library(leaflet)
+library(viridisLite)
 
 ```
 
@@ -511,4 +515,121 @@ htmlwidgets::saveWidget(losdos,
 
 ```
 
+
+###Comunas###
+#Fecha de actualización: 2020.
+#Información geográfica de la locación (perímetro y área) de las comunas de la Ciudad establecidas a partir de la Ley Orgánica de Comunas (Ley Nº 1777/2005). Fuente EAH (Buenos Aires Data-GCBA).
+#Cargo el dataset comuna para poder georeferenciar los niveles de hacinamiento, por comuna. 
+
+*1.Cargo los datos*
+```{r}
+Comunas<-st_read("https://cdn.buenosaires.gob.ar/datosabiertos/datasets/comunas/CABA_comunas.geojson")
+```
+
+*2.Me quedo con las variables que interesan: número de comuna y geometry.*
+```{r}
+
+Comunas<-Comunas[,c(4,7)]%>%
+  rename(Comuna=COMUNAS)
+
+```
+
+
+*3.Creo variables con los datos puntuales de la geomtría de las comunas.*
+```{r}
+
+Comunas$centroide <-st_centroid(Comunas$geometry)
+
+Comunas <- Comunas %>%
+  mutate(
+  lat = unlist(map(Comunas$centroide,1)),
+  long = unlist(map(Comunas$centroide,2)))
+
+```
+
+*4. Modifico las variables de las comunas para poder unir los DF.*
+```{r}
+
+#Hacinamiento
+str(hacinamiento)
+
+hacinamiento <- hacinamiento %>%
+  rename("Comuna" = "Comunas")
+
+#Comunas
+
+str(Comunas)
+
+Comunas$Comuna<-as.character(Comunas$Comuna)
+
+```
+
+*5. Creo nuevo DF con datos de comuna y hacinamiento.*
+```{r}
+
+Geo_hacinamiento <- full_join(hacinamiento, Comunas, by="Comuna")
+
+
+Geo_hacinamiento<-st_as_sf(Geo_hacinamiento)
+
+class(Geo_hacinamiento)
+
+str(Geo_hacinamiento)
+
+```
+
+*6. Me quedo con los datos del 2018, para que en el mapa figuren los más recientes.*
+```{r}
+
+GeoHAC_18 <- Geo_hacinamiento %>%
+  filter(Año == "2018")
+
+```
+
+
+
+*7. Georeferencio hacinamiento, según comuna.*
+```{r}
+
+
+pal_hac <- colorNumeric(palette = "Spectral", domain = GeoHAC_18$Hacinamiento_no_critico)
+
+labels <- sprintf("<strong>%s</strong><br/>%g Hacinamiento no crítico  (2018) <sup></sup>",
+  GeoHAC_18$Comuna, GeoHAC_18$Hacinamiento_no_critico) %>%
+  lapply(htmltools::HTML)
+
+
+
+
+Mapa_hacinamiento <-
+  leaflet(GeoHAC_18) %>% 
+  setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(fillColor = ~pal_hac(Hacinamiento_no_critico),
+              opacity = 0.7,
+              color = "white",
+              dashArray = "3",
+              fillOpacity = 0.7,
+              highlight = highlightOptions(
+                weight = 5,
+                color = "#666",
+                dashArray = "",
+                fillOpacity = 0.3,
+                bringToFront = TRUE),
+              label = labels,
+              labelOptions = labelOptions(textsize = "15px"))
+
+
+              
+            
+Mapa_hacinamiento
+
+
+
+htmlwidgets::saveWidget(Mapa_hacinamiento,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Mapa_hacinamiento.html",
+                        selfcontained = T)
+
+ 
+```
 
