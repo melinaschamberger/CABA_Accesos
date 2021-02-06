@@ -1,0 +1,295 @@
+---
+title: "Hospitales"
+author: "Melina"
+date: "30/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+*1. Cargo Librerias.*
+```{r}
+library(tidyverse)
+library(sf)
+library(viridis)
+library(plotly)
+library(ggplot2)
+library(ggmap)
+library(leaflet)
+library(htmlwidgets)
+library(leaflet)
+library(viridisLite)
+library(data.table)
+library(gganimate)
+library(lubridate)
+library(gifski)
+library(modeest)
+library(hrbrthemes)
+library(patchwork)
+library(spatialEco)
+library(rgeos)
+library(highcharter)
+library(rgdal)
+
+
+```
+
+*2. Cargo los datos.*
+###Hospitales###
+#Información y ubicación geográfica de los hospitales de la Ciudad.
+#Fuente: Ministerio de Salud- GCBA.
+#Fecha de actualización: 2020.
+###Comunas###
+#Fecha de actualización: 2020.
+#Información geográfica de la locación (perímetro y área) de las comunas de la Ciudad establecidas a partir de la Ley Orgánica de Comunas (Ley Nº 1777/2005). Fuente EAH (Buenos Aires Data-GCBA).
+```{r}
+hospitales <- st_read ("https://cdn.buenosaires.gob.ar/datosabiertos/datasets/salud/hospitales/hospitales.geojson")
+Comunas<-st_read("https://cdn.buenosaires.gob.ar/datosabiertos/datasets/comunas/CABA_comunas.geojson")
+
+```
+
+*3. Indago los datos.*
+```{r}
+summarise(hospitales)
+
+str(hospitales)
+
+colnames(hospitales)
+
+```
+
+*4. Separo latitud y longitud para poder trabajar con mapa leaflet tambien.* 
+```{r}
+#hospitales
+
+hospitales <- hospitales %>%
+  mutate(long = unlist(map(hospitales$geometry,1)),
+         lat = unlist(map(hospitales$geometry,2)))
+
+```
+
+
+*5.Me quedo con las variables que interesan: número de comuna y geometry.*
+```{r}
+
+#comunas
+
+Comunas<-Comunas[,c(4,7)]%>%
+  rename(Comuna=COMUNAS)
+
+```
+
+
+*6.Creo variables con los datos puntuales de la geomtría de las comunas.*
+```{r}
+
+#comunas
+
+Comunas$centroide <-st_centroid(Comunas$geometry)
+
+Comunas <- Comunas %>%
+  mutate(
+  lat = unlist(map(Comunas$centroide,2)),
+  long = unlist(map(Comunas$centroide,1)))
+
+```
+
+*7.Quiero ver cuántos hospitales hay por comuna.*
+#Tener en cuenta que Comuna 1 no tiene hospitales. 
+```{r}
+
+Hosp_Com <- point.in.poly(hospitales, Comunas)
+Hosp_Com <- table(Hosp_Com$Comuna)
+Hosp_Com <- as.data.frame(Hosp_Com)
+
+#Renombro variable. 
+
+Hosp_Com <- Hosp_Com %>%
+  rename("Comuna" = "Var1",
+         "Hospitales" = "Freq")
+
+```
+
+*8.Grafico cantidad de hospitales por comuna.*
+#Se observa que Comuna 4 es la que mayor cantidad de hospitales tiene. Comuna 1 no tiene hospitales. 
+```{r}
+
+
+Grafico_hosp <- hchart(Hosp_Com, "bar", hcaes(x = Comuna, y = Hospitales, group = Hospitales))  %>% hc_add_theme(hc_theme_gridlight()) %>%
+               hc_title(text = "Cantidad de hospitales por comuna.")%>%
+  hc_subtitle(text = "Ciudad Autónoma de Buenos Aires (2020)")%>%
+  hc_yAxis(title = list(text = "Cantidad de hospitales"),
+           labels = list(format = "{value}")) %>%
+                hc_credits(enabled = TRUE, text = "Fuente Data Buenos Aires- GCBA", style = list(fontSize = "12px"))%>%
+                hc_add_theme(hc_theme_flat())
+
+
+Grafico_hosp
+
+htmlwidgets::saveWidget(Grafico_hosp,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Hospitales_Comuna.html",
+                        selfcontained = T)
+```
+
+
+*9. Mapeo para ver donde estan localizados los hospitales.*
+#Compruebo que comuna 1 no tiene hospitales. 
+```{r}
+mapa_hospitales <- ggplot()+
+  geom_sf(data= Comunas) +
+  geom_sf(data = hospitales$geometry)
+
+mapa_hospitales
+```
+
+
+
+*10. Me quedo con las variables de interes para mapear.*
+```{r}
+Hospitales_reducido <- hospitales[,c(2,14,15,20,21,22)]
+
+view(Hospitales_reducido)
+
+```
+
+
+
+*11.Mapeo para ver donde estan localizados los hospitales.*
+```{r}
+
+Geo_hosp <- leaflet(data = Hospitales_reducido) %>% 
+  setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addMarkers(~long, ~lat)
+
+```
+
+*12.Agrego iconos según tipo de hospital.*
+#Para ello, primero creo variable numerica con tipo de hospital. 
+```{r}
+
+unique(Hospitales_reducido$TIPO)
+
+Hospitales_reducido <- Hospitales_reducido %>%
+  mutate(TINUM = case_when(
+    TIPO == "Hospital de niños"~ "1",
+    TIPO == "Hospital especializado"~ "2",
+    TIPO == "Hospital de agudos"~ "3"))
+
+Hospitales_reducido$TINUM <- as.numeric(Hospitales_reducido$TINUM)
+
+
+getColor <- function(Hospitales_reducido) {
+  sapply(Hospitales_reducido$TINUM, function(TINUM) {
+  if(TINUM == 1) {
+    "green"
+  } else if(TINUM == 2) {
+    "red"
+  } else {
+    "orange"
+  } })
+}
+
+icons <- awesomeIcons(
+  icon = 'ios-close',
+  library = 'ion',
+  markerColor = getColor(Hospitales_reducido)
+)
+
+Geo_hosp <- leaflet(data = Hospitales_reducido) %>% 
+  setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addAwesomeMarkers(~long, ~lat, icon = icons, label = ~as.character(TIPO))
+
+htmlwidgets::saveWidget(Geo_hosp,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Hospitales_Mapa.html",
+                        selfcontained = T)
+
+
+```
+
+
+*13. Creo DF para agregar líneas según comuna.*
+```{r}
+
+Reducido_hospital <- point.in.poly(hospitales, Comunas)
+Reducido_hospital <- as.data.frame(Reducido_hospital)
+Reducido_hospital <- Reducido_hospital[,c(2,14,15,20,21,22,23,24)]
+
+str(Reducido_hospital)
+
+
+Reducido_hospital <- Reducido_hospital %>%
+  mutate(TINUM = case_when(
+    TIPO == "Hospital de niños"~ "1",
+    TIPO == "Hospital especializado"~ "2",
+    TIPO == "Hospital de agudos"~ "3"))
+
+Reducido_hospital$TINUM <- as.numeric(Reducido_hospital$TINUM)
+
+
+getColor <- function(Reducido_hospital) {
+  sapply(Reducido_hospital$TINUM, function(TINUM) {
+  if(TINUM == 1) {
+    "green"
+  } else if(TINUM == 2) {
+    "red"
+  } else {
+    "orange"
+  } })
+}
+
+
+icons <- awesomeIcons(
+  icon = 'ios-close',
+  library = 'ion',
+  markerColor = getColor(Reducido_hospital)
+)
+
+
+
+Geo_hosp_2 <- leaflet(data = Reducido_hospital) %>% 
+  setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addAwesomeMarkers(~long.x, ~lat.x, icon = icons, label = ~as.character(TIPO)) %>%
+  addPolylines(data = Comunas, color="#2F4AFF", opacity = 1, weight = 2)
+
+
+htmlwidgets::saveWidget(Geo_hosp_2,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Hospitales_Mapa.html",
+                        selfcontained = T)
+```
+
+*14. Agrego delimitación de comunas.*
+#Primero creo la etiqueta, luego la agrego en el mapa. 
+```{r}
+
+
+labels <- sprintf("<strong>%s</strong><br/>%s  <sup></sup>",
+  Reducido_hospital$Comuna, 
+  Reducido_hospital$TIPO)%>%
+  lapply(htmltools::HTML)
+
+
+Geo_hosp_2 <- leaflet(data = Reducido_hospital) %>% 
+  setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addAwesomeMarkers(~long.x, ~lat.x, icon = icons, label = labels, labelOptions = labelOptions(textsize = "15px")) %>%
+  addPolylines(data = Comunas, color="#1d3354", opacity = 1, weight = 2)
+
+
+htmlwidgets::saveWidget(Geo_hosp_2,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Hospitales_Mapa.html",
+                        selfcontained = T)
+
+```
+
+
+
+
+
+
+
