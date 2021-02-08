@@ -1,0 +1,405 @@
+---
+title: "Escuelas_CABA"
+author: "Melina"
+date: "8/2/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+*1. Cargo Librerias.*
+```{r}
+library(tidyverse)
+library(sf)
+library(viridis)
+library(plotly)
+library(ggplot2)
+library(ggmap)
+library(leaflet)
+library(htmlwidgets)
+library(leaflet)
+library(viridisLite)
+library(data.table)
+library(gganimate)
+library(lubridate)
+library(gifski)
+library(modeest)
+library(hrbrthemes)
+library(patchwork)
+library(spatialEco)
+library(rgeos)
+library(highcharter)
+library(rgdal)
+
+
+```
+
+
+*2. Cargo los datos.*
+###Escuelas###
+#Listado con ubicación geográfica de los establecimientos educativos de la Ciudad.
+#Fuente: Ministerio de Educación e Innovación- GCBA.
+#Fecha de actualización: 2020.
+###Comunas###
+#Fecha de actualización: 2020.
+#Información geográfica de la locación (perímetro y área) de las comunas de la Ciudad establecidas a partir de la Ley Orgánica de Comunas (Ley Nº 1777/2005). Fuente EAH (Buenos Aires Data-GCBA).
+```{r}
+Escuelas <- st_read("http://cdn.buenosaires.gob.ar/datosabiertos/datasets/establecimientos-educativos/establecimientos-educativos.geojson")
+Comunas<-st_read("https://cdn.buenosaires.gob.ar/datosabiertos/datasets/comunas/CABA_comunas.geojson")
+
+```
+
+*3. Indago los datos.*
+```{r}
+view(Escuelas)
+
+str(Escuelas)
+```
+
+*4. Separo latitud y longitud para poder trabajar con mapa leaflet tambien.* 
+```{r}
+#escuelas
+
+Escuelas <- Escuelas %>%
+  mutate(long = unlist(map(Escuelas$geometry, 1)),
+         lat = unlist(map(Escuelas$geometry,2)))
+
+```
+
+
+*5.Me quedo con las variables que interesan: número de comuna y geometry.*
+```{r}
+
+#comunas
+
+Comunas<-Comunas[,c(4,7)]%>%
+  rename(COMUNA=COMUNAS)
+
+```
+
+
+*6.Creo variables con los datos puntuales de la geometría de las comunas.*
+```{r}
+
+#comunas
+
+Comunas$centroide <-st_centroid(Comunas$geometry)
+
+Comunas <- Comunas %>%
+  mutate(
+  lat = unlist(map(Comunas$centroide,2)),
+  long = unlist(map(Comunas$centroide,1)))
+
+```
+
+
+*7.Quiero ver cuántos hospitales hay por comuna.*
+```{r}
+
+Esc_Com <- point.in.poly(Escuelas, Comunas)
+Esc_Com <- as.data.frame(Esc_Com)
+Esc_Com <- table(Esc_Com$COMUNA.x)
+Esc_Com <- as.data.frame(Esc_Com)
+
+#Renombro variable. 
+Esc_Com <- Esc_Com %>%
+  rename("Comuna" = "Var1",
+         "Escuelas" = "Freq")
+
+```
+
+*8.Grafico cantidad de escuelas por comuna.*
+#Se observa que Comuna 4 y Comuna 1 son las que mayor cantidad de escuelas tienen. 
+```{r}
+
+
+Grafico_esc <- hchart(Esc_Com, "bar", hcaes(x = Comuna, y = Escuelas, group = Comuna))  %>% hc_add_theme(hc_theme_gridlight()) %>%
+               hc_title(text = "Cantidad de escuelas por comuna.")%>%
+  hc_subtitle(text = "Ciudad Autónoma de Buenos Aires (2020)")%>%
+  hc_yAxis(title = list(text = "Cantidad de escuelas"),
+           labels = list(format = "{value}")) %>%
+                hc_credits(enabled = TRUE, text = "Fuente Data Buenos Aires- GCBA", style = list(fontSize = "12px"))%>%
+                hc_add_theme(hc_theme_flat())
+
+
+htmlwidgets::saveWidget(Grafico_esc,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Escuelas_Comuna.html",
+                        selfcontained = T)
+```
+
+
+*9. Mapeo para ver donde estan localizadas las escuelas.*
+#Compruebo que comuna 1 no tiene hospitales. 
+```{r}
+mapa_escuelas<- ggplot()+
+  geom_sf(data= Comunas) +
+  geom_sf(data = Escuelas$geometry)
+
+mapa_escuelas
+
+```
+
+
+
+*10. Me quedo con las variables de interes para mapear.*
+```{r}
+colnames(Escuelas)
+
+Escuelas_reducido<-Escuelas [,c(9,15,16,17,20,23,24,25,26,27,28,29)]
+
+view(Escuelas_reducido)
+
+```
+
+*11.Mapeo para ver donde estan localizadas las escuelas.*
+```{r}
+
+Geo_esc <- leaflet(data = Escuelas_reducido) %>% 
+  setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addMarkers(~long, ~lat)
+
+```
+
+
+*13. Creo variable general para reducir variables específicas y luego creo variable numérica con tales datos.*
+```{r}
+unique(Escuelas_reducido$NIVELMODAL)
+
+Escuelas_reducido <- Escuelas_reducido %>%
+  mutate(niv = case_when(
+    NIVELMODAL == "Nivel Secundario de Jóvenes y Adultos" ~ "Secundario",
+    NIVELMODAL == "Nivel Secundario Común" ~ "Secundario",
+    NIVELMODAL == "Nivel Inicial Común" ~ "Inicial",
+    NIVELMODAL == "Otros Servicios Educativos de la modalidad Común" ~ "Otros",
+    NIVELMODAL == "Nivel Primario Común" ~ "Primario",
+    NIVELMODAL == "Nivel Inicial, Primario y Secundario Común" ~ "Inicial a Secundario",
+    NIVELMODAL == "Nivel Inicial y Primario Común" ~ "Inicial a Primario",
+    NIVELMODAL == "Nivel Primario de Jóvenes y Adultos" ~ "Primario",
+    NIVELMODAL == "Nivel Primario de Jóvenes y Adultos - Otros Servicios Educativos de la modalidad de Jóvenes y Adultos" ~ "Primario",
+    NIVELMODAL == "Otros Servicios Educativos de la modalidad de Jóvenes y Adultos" ~ "Otros",
+    NIVELMODAL == "Otros Servicios Educativos de las modalidades Común y de Jóvenes y Adultos" ~ "Otros",
+    NIVELMODAL == "Nivel Superior No Universitario Común - Otros Servicios Educativos de la modalidad de Jóvenes y Adultos" ~ "Superior",
+    NIVELMODAL == "Nivel Inicial Común - Otros Servicios Educativos de la modalidad Común" ~ "Inicial",
+    NIVELMODAL == "Nivel Superior No Universitario Común" ~ "Superior",
+    NIVELMODAL == "Nivel Superior No Universitario Común - Otros Servicios Educativos de la modalidad Común" ~ "Superior",                                                                                                        NIVELMODAL == "Nivel Inicial y Primario Especial" ~ "Inicial a Primario",                                      NIVELMODAL == "Nivel Primario Especial - Otros Servicios Educativos de la modalidad Especial" ~ "Primario",
+    NIVELMODAL == "Otros Servicios Educativos de la modalidad Común - Otros Servicios Educativos de la modalidad de Jóvenes y Adultos" ~ "Otros",
+    NIVELMODAL == "Nivel Inicial, Primario, Secundario y Terciario No Universitario Común" ~ "Inicial a Terciario",
+    NIVELMODAL == "Nivel Inicial y Secundario Común" ~ "Inicial y Secundario",
+    NIVELMODAL == "Nivel Secundario Común - Nivel Secundario de Jóvenes y Adultos" ~ "Secundario",                 NIVELMODAL == "Nivel Inicial, Primario, Secundario y Superior No Universitario Común" ~ "Inicial a Superior",                                                
+    NIVELMODAL == "Nivel Inicial, Primario y Secundario Común - Nivel Secundario de Jóvenes y Adultos" ~ "Inicial a Secundario",
+    NIVELMODAL == "Nivel Primario Especial" ~ "Primario",                                                          NIVELMODAL == "Nivel Secundario de Jóvenes y Adultos - Nivel Superior No Universitario Común - Otros Servicios Educativos de la modalidad de Jóvenes y Adultos" ~ "Secundario a Superior",
+    NIVELMODAL == "Nivel Primario, Secundario y Superior No Universitario Común" ~ "Primario a Superior",
+    NIVELMODAL == "Nivel Inicial y Primario Especial - Otros Servicios Educativos de la modalidad Especial" ~ "Inicial a Primario",
+    NIVELMODAL == "Nivel Inicial, Primario, Secundario  y Superior No Universitario Común - Nivel Primario y Secundario Especial" ~ "Inicial a Superior",              
+    NIVELMODAL == "Otros Servicios Educativos de la modalidad Especial" ~ "Otros",
+    NIVELMODAL == "Nivel Secundario Común -Nivel Secundario de Jóvenes y Adultos" ~ "Secundario",
+    NIVELMODAL == "Nivel Secundario Común - Nivel Superior No Universitario Común - Otros Servicios Educativos de las modalidadades Común y de Jóvenes y Adultos" ~ "Secundario a Superior",    
+    NIVELMODAL == "Nivel Secundario Común - Nivel Superior No Universitario Común - Otros Servicios Educativos de la modalidad Común" ~ "Secundario a Superior", 
+    NIVELMODAL == "Nivel Inicial Especial" ~ "Inicial",
+    NIVELMODAL == "Nivel Inicial" ~ "Inicial",
+    NIVELMODAL == "Nivel Secundario y Superior No Universitario Común - Nivel Secundario de Jóvenes y Adultos" ~ "Secundario a Superior",
+    NIVELMODAL == "Nivel Primario y Secundario Común" ~ "Primario a Secundario",
+    NIVELMODAL == "Nivel Inicial, Primario y Secundario Común - Nivel Primario de Jóvenes y Adultos" ~ "Inicial a Secundario",
+    NIVELMODAL == "Nivel Inicial y Primario Especial - Nivel Secundario Común" ~ "Inicial a Secundario",
+    NIVELMODAL == "Nivel Secundario Común - Otros Servicios Educativos de las modalidadades Común y de Jóvenes y Adultos" ~ "Secundario",
+    NIVELMODAL == "Nivel Secundario Común - Otros Servicios Educativos de la modalidad de Jóvenes y Adultos" ~ "Secundario",
+    NIVELMODAL == "Nivel Inicial y Superior No Universitario Común" ~ "Inicial y Superior",
+    NIVELMODAL == "Nivel Secundario Común - Nivel Secundario de Jóvenes y Adultos - Nivel Superior No Universitario Común - Otros Servicios Educativos de la modalidad Común" ~ "Secundario a Superior", 
+    NIVELMODAL == "Nivel Secundario de Jóvenes y Adultos - Nivel Superior No Universitario Común" ~ "Secundario a Superior",
+    NIVELMODAL == "Nivel Secundario y Superior No Universitario Común" ~ "Secundario a Superior",                  NIVELMODAL == "Nivel Inicial y Primario Común - Nivel Primario de Jóvenes y Adultos" ~ "Inicial a Primario",                                                                                                         NIVELMODAL == "Nivel Inicial y Primario Común - Nivel Primario Especial - Otros Servicios Educativos de la modalidad Común" ~ "Inicial a Primario",
+    NIVELMODAL == "Nivel Inicial y Primario Especial - Nivel Secundario de Jóvenes y Adultos - Otros Servicios Educativos de la modalidad Especial" ~ "Inicial a Secundario",
+    NIVELMODAL == "Nivel Inicial, Primario y Secundario Especial - Otros Servicios Educativos de la modalidad Especial" ~ "Inicial a Secundario",
+    NIVELMODAL == "Nivel Inicial, Primario, Secundario y Superior No Universitario Común - Nivel Secundario de Jóvenes y Adultos" ~ "Inicial a Superior",                                                                         NIVELMODAL == "Nivel Inicial, Primario y Secundario Común - Nivel Primario y Secundario de Jóvenes y Adultos" ~ "Inicial a Secundario",               
+    NIVELMODAL == "Nivel Inicial, Primario, Secundario Común - Nivel Secundario de Jóvenes y Adultos" ~ "Inicial a Secundario",                                          
+    NIVELMODAL == "Nivel Primario y Secundario de Jóvenes y Adultos" ~ "Primario a Secundario", 
+    NIVELMODAL == "Nivel Secundario Común - Otros Servicios Educativos de la modalidad Común" ~ "Secundario",
+    NIVELMODAL == "Nivel Primario y Secundario Especial" ~ "Primario a Secundario"))
+
+
+
+#Creo variable numérica, con cantidad de niveles ofrecidos.
+
+unique(Escuelas_reducido$niv)
+
+Escuelas_reducido <- Escuelas_reducido %>%
+  mutate(num_niv = case_when(
+    niv == "Otros" ~ "1",
+    niv == "Primario" ~ "1",
+    niv == "Secundario" ~ "1",
+    niv == "Inicial" ~ "1",
+    niv == "Superior" ~ "1",
+    niv == "Inicial a Primario" ~ "2",
+    niv == "Inicial a Secundario" ~ "3",
+    niv == "Secundario a Superior" ~ "2",
+    niv == "Inicial a Superior" ~ "4",
+    niv == "Primario a Superior" ~ "3",
+    niv == "Primario a Secundario" ~ "2", 
+    niv == "Inicial a Terciario" ~ "4",
+    niv == "Inicial y Secundario" ~ "2",
+    niv == "Inicial y Superior" ~ "2"))
+
+
+unique(Escuelas_reducido$num_niv)
+
+Escuelas_reducido$num_niv <- as.numeric(Escuelas_reducido$num_niv)
+
+str(Escuelas_reducido)
+
+```
+
+*13.Son demasiados registros, por lo que selecciono muestra alaeatoria con el 40% para mejorar la visualización.*
+
+```{r}
+Muestra_escuelas <- sample_n(Escuelas_reducido, 848)
+
+Geo_esc <- leaflet(data = Muestra_escuelas) %>% 
+  setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addMarkers(~long, ~lat)
+```
+
+
+
+*14.Agrego iconos según cantidad de niveles ofrecidos.*
+```{r}
+
+unique(Muestra_escuelas$num_niv)
+
+
+getColor_Escuela <- function(Muestra_escuelas) {
+  sapply(Muestra_escuelas$num_niv, function(num_niv) {
+  if(num_niv == "1") {
+    "green"
+  } else if(num_niv == "2") {
+    "red"
+  } else if(num_niv == "3") {
+    "blue"
+  } else {
+    "orange"
+  } })
+}
+
+
+
+icons_Escuela <- awesomeIcons(
+  icon = 'ios-close',
+  library = 'ion',
+  markerColor = getColor_Escuela(Muestra_escuelas))
+
+
+
+Geo_esc <- leaflet(data = Muestra_escuelas) %>% 
+  setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addAwesomeMarkers(~long, ~lat, icon = icons_Escuela, label = ~as.character(NIVELMODAL))
+
+htmlwidgets::saveWidget(Geo_esc,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Escuelas_Mapa.html",
+                        selfcontained = T)
+
+
+```
+
+
+*15. Agrego líneas según comuna.*
+```{r}
+
+
+getColor_Escuela <- function(Muestra_escuelas) {
+  sapply(Muestra_escuelas$num_niv, function(num_niv) {
+  if(num_niv == 1) {
+    "green"
+  } else if(num_niv == 2) {
+    "red"
+  } else if(num_niv == 3) {
+    "blue"
+  } else {
+    "orange"
+  } })
+}
+
+icons_Escuela <- awesomeIcons(
+  icon = 'ios-close',
+  library = 'ion',
+  markerColor = getColor_Escuela(Muestra_escuelas)
+)
+
+
+Geo_esc <- leaflet(data = Muestra_escuelas) %>% 
+  setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addAwesomeMarkers(~long, ~lat, icon = icons_Escuela, label = ~as.character(NIVELMODAL))%>%
+  addPolylines(data = Comunas, color="#2F4AFF", opacity = 1, weight = 2)
+
+
+htmlwidgets::saveWidget(Geo_esc,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Escuelas_Mapa.html",
+                        selfcontained = T)
+```
+
+
+
+*16. Agrego etiquetas.*
+#Primero creo la etiqueta, luego la agrego en el mapa. 
+```{r}
+
+
+labels_esc <- sprintf("<strong>%s</strong><br/>%s  <sup></sup>",
+  Muestra_escuelas$COMUNA,
+  Muestra_escuelas$NIVELMODAL)%>%
+  lapply(htmltools::HTML)
+
+
+
+Geo_esc <- leaflet(data = Muestra_escuelas) %>% 
+  setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addAwesomeMarkers(~long, ~lat, icon = icons_Escuela, label = labels_esc, labelOptions = labelOptions(textsize = "15px"))%>%
+  addPolylines(data = Comunas, color="#2F4AFF", opacity = 1, weight = 2)
+
+
+htmlwidgets::saveWidget(Geo_esc,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Escuelas_Mapa.html",
+                        selfcontained = T)
+
+```
+
+*17. Agrego leyenda.*
+```{r}
+bins <- c(0,1,2,3,4)
+
+pal_EEE<- colorBin(c("#6d9d37", "red", "#35aee6", "#fb8e33"), domain = Muestra_escuelas$num_niv, bins = bins)
+
+
+Geo_esc <- leaflet(data = Muestra_escuelas) %>% 
+  setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addAwesomeMarkers(~long, ~lat, icon = icons_Escuela, label = labels_esc, labelOptions = labelOptions(textsize = "15px"))%>%
+  addPolylines(data = Comunas, color="#2F4AFF", opacity = 1, weight = 2) %>%
+  addLegend(pal=pal_EEE, 
+            values = ~num_niv,
+            opacity = 1, 
+            title = "Cantidad de niveles ofrecidos por escuela.",
+            labFormat = labelFormat(suffix=""),
+            position = "bottomleft")
+
+
+
+
+htmlwidgets::saveWidget(Geo_esc,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Escuelas_Mapa.html",
+                        selfcontained = T)
+
+
+```
+
