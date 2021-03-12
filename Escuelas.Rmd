@@ -19,26 +19,31 @@ When you click the **Knit** button a document will be generated that includes bo
 *1. Cargo Librerias.*
 ```{r}
 library(tidyverse)
-library(sf)
-library(viridis)
 library(plotly)
+library(data.table)
+library(highcharter)
 library(ggplot2)
+
+library(sf)
 library(ggmap)
 library(leaflet)
+library(rgdal)
+library(rgeos)
+library(raster)
+library(sp)
+library(spdplyr)
+library(geojsonio)
+library(rmapshaper)
+
 library(htmlwidgets)
-library(leaflet)
+library(viridis)
 library(viridisLite)
-library(data.table)
 library(gganimate)
-library(lubridate)
 library(gifski)
 library(modeest)
 library(hrbrthemes)
 library(patchwork)
 library(spatialEco)
-library(rgeos)
-library(highcharter)
-library(rgdal)
 
 
 ```
@@ -99,6 +104,7 @@ Comunas <- Comunas %>%
   lat = unlist(map(Comunas$centroide,2)),
   long = unlist(map(Comunas$centroide,1)))
 
+
 ```
 
 
@@ -114,6 +120,10 @@ Esc_Com <- as.data.frame(Esc_Com)
 Esc_Com <- Esc_Com %>%
   rename("Comuna" = "Var1",
          "Escuelas" = "Freq")
+
+#Guardo CSV.
+write.csv(Esc_Com, "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Prueba_proyecto/EscCom.csv", row.names = F, 
+          fileEncoding = "UTF-8")
 
 ```
 
@@ -262,10 +272,27 @@ str(Escuelas_reducido)
 ```{r}
 Muestra_escuelas <- sample_n(Escuelas_reducido, 848)
 
+#Guardo archivo en SHP
+st_as_sf(x = Muestra_escuelas,
+         sf_column_name = Muestra_escuelas$geometry)
+
+st_write(Muestra_escuelas, 
+         geom_name = Muestra_escuelas$geometry,
+         "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Prueba_proyecto/MuestraEsc.shp")
+
+#Convierto SHP en Geojson
+Muestra_escuelas<- st_read("MuestraEsc.shp")
+Muestra_escuelas <- geojson_json (Muestra_escuelas)
+#Muestra_escuelas <- ms_simplify (Muestra_escuelas, keep = 0.5)
+geojson_write (Muestra_escuelas, 
+               file = "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Prueba_proyecto/MuestraEsc.geojson")
+
+
 Geo_esc <- leaflet(data = Muestra_escuelas) %>% 
   setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
   addProviderTiles(providers$CartoDB.Positron) %>%
   addMarkers(~long, ~lat)
+
 ```
 
 
