@@ -1,0 +1,323 @@
+---
+title: "Vivienda2"
+author: "Melina"
+date: "13/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+*1. Cargo Librerias.*
+```{r}
+library(tidyverse)
+library(plotly)
+library(data.table)
+library(modeest)
+
+library(sf)
+library(ggmap)
+library(leaflet)
+library(spatialEco)
+library(rgeos)
+library(rgdal)
+library(spdplyr)
+library(geojsonio)
+library(rmapshaper)
+
+library(viridis)
+library(viridisLite)
+library(htmlwidgets)
+library(gganimate)
+library(highcharter)
+library(gifski)
+library(hrbrthemes)
+library(patchwork)
+library(billboarder)
+
+
+
+```
+
+*2. Cargo los datos.*
+###Viviendas por condición de ocupación###
+#Distribución porcentual de Viviendas por Condición de ocupación por comuna.
+#Fuente: Censo Nacional de Población, hogares y viviendas (INDEC).
+#Fecha de actualización: 2019.
+###Comunas###
+#Fecha de actualización: 2020.
+#Información geográfica de la locación (perímetro y área) de las comunas de la Ciudad establecidas a partir de la Ley Orgánica de Comunas (Ley Nº 1777/2005). Fuente EAH (Buenos Aires Data-GCBA).
+```{r}
+rm(list = ls())
+
+Viviendas <- read_csv("https://cdn.buenosaires.gob.ar/datosabiertos/datasets/acceso-vivienda-y-mercado-inmobiliario/viviendas-por-condicion-de-ocupacion-por-comuna.csv")
+
+Comunas<-st_read("https://cdn.buenosaires.gob.ar/datosabiertos/datasets/comunas/CABA_comunas.geojson")
+```
+
+*3. Indago los datos.*
+```{r}
+#Vivienda
+
+str(Viviendas)
+
+colnames(Viviendas)
+
+
+```
+
+*4. Renombro las variables de Viviendas.*
+```{r}
+colnames(Viviendas)
+
+Viviendas <- Viviendas %>%
+  rename("Todos_presentes" = "Con todas las personas temporalmente presentes",
+         "Todos_ausentes" = "Con todas las personas temporalmente ausentes",
+         "Alquiler_venta" = "En alquiler o venta", 
+         "Construccion" = "En construcción",
+         "Comercio_oficina_consultorio" = "Se usa como comercio, oficina o consultorio",
+         "Vacaciones" = "Se usa para vacaciones, fin de semana u otro uso temporal",
+         "Otros" = "Por otra razón")
+
+```
+
+*5.Grafico cantidad de ocupados por comuna.*
+```{r}
+
+Grafico_viv <- hchart(Viviendas, "column", 
+                      hcaes(x = Comuna, y = Todos_presentes, color = Todos_presentes), name = "Viviendas ocupadas")  %>%
+                      hc_title(text = "Distribución porcentual de viviendas con todas las personas presentes según comuna.") %>%
+                hc_subtitle(text = "Ciudad Autónoma de Buenos Aires (2010)") %>%
+                hc_yAxis(title = list(text = "Todas las personas temporalmente presentes (en %)"),
+                labels = list(format = "{value}%")) %>%
+                hc_credits(enabled = TRUE, 
+                           text = "Fuente: Censo 2010 (INDEC)", 
+                           style = list(fontSize = "12px"))%>%
+                hc_plotOptions(series = list(showInLegend = FALSE)) %>%
+                hc_add_theme(hc_theme_economist())
+
+Grafico_viv
+
+htmlwidgets::saveWidget(Grafico_viv,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Prueba_proyecto/Viviendas_presentes.html", selfcontained = T)
+
+```
+
+
+*6.Grafico viviendas según condición de ocupación (ocupadas/ desocupadas) por comuna.*
+```{r}
+Grafico_viv2 <- highchart() %>%
+  hc_add_series(Viviendas, "column", 
+                hcaes(x = Comuna, y = Todos_presentes, color = Todos_presentes), 
+                name = "Viviendas ocupadas") %>%
+  hc_add_series(Viviendas, "column", 
+                hcaes(x = Comuna, y = Todos_ausentes, color = Todos_ausentes), 
+                name = "Viviendas desocupadas") %>%
+  hc_plotOptions(column = list(dataLabels = list(enabled = T))) %>%
+  hc_xAxis(title = list(text = "Comunas")) %>%
+  hc_yAxis(labels = list(format = "{value}%")) %>%
+                      hc_title(text = "Distribución porcentual de viviendas según condición de ocupación, por comuna.") %>%
+                hc_subtitle(text = "Ciudad Autónoma de Buenos Aires (2010)") %>%
+                hc_yAxis(title = list(text = "Distribución porcentual de viviendas (en %)"),
+                labels = list(format = "{value}%")) %>%
+                hc_credits(enabled = TRUE, 
+                           text = "Fuente: Censo 2010 (INDEC)", 
+                           style = list(fontSize = "12px"))%>%
+                hc_add_theme(hc_theme_economist())
+
+Grafico_viv2
+
+htmlwidgets::saveWidget(Grafico_viv2,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Prueba_proyecto/Viviendas_ocupacion.html",
+                        selfcontained = T)
+```
+
+
+*6.Guardo archivo de viviendas.*
+```{r}
+write.csv(Viviendas, "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Prueba_proyecto/Viviendas.csv", row.names = F,
+          fileEncoding = "UTF-8")
+```
+
+
+*7. Grafico comunas por condición*
+```{r}
+
+ejemplo <- billboarder ()  %>% 
+  bb_barchart (data = Viviendas, stacked = T) %>%
+  bb_data(order = NULL, labels = F) %>%
+  bb_color(palette = c('#E58606','#5D69B1','#52BCA3','#99C945','#CC61B0', '#CC61B3', '#CC62B0')) %>%
+  bb_data(names(list(Vivienda = "Comuna")))
+
+ejemplo
+
+htmlwidgets::saveWidget(ejemplo,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Prueba_proyecto/Ejemplo.html",
+                        selfcontained = T)
+```
+
+#Quiero graficar coropleta con valores comerciales por comuna. 
+
+*8.Me quedo con las variables que interesan de las comunas: número de comuna y geometry.*
+```{r}
+#Comunas
+
+Comunas<-Comunas[,c(4,7)]%>%
+  rename(Comuna=COMUNAS)
+
+```
+
+*9.Creo variables con los datos puntuales de la geometría de las comunas.*
+```{r}
+#comunas
+
+Comunas$centroide <-st_centroid(Comunas$geometry)
+
+Comunas <- Comunas %>%
+  mutate(
+  lat = unlist(map(Comunas$centroide,2)),
+  long = unlist(map(Comunas$centroide,1)))
+  
+Comunas<-Comunas[,c(1,3,4,5)]
+
+
+```
+
+*10.Uno los dos DF: Viviendas y comunas para poder mapearlos.*
+```{r}
+
+Viv_Com <- full_join(Viviendas, Comunas, by = "Comuna")
+
+class(Viv_Com)
+
+```
+
+*11.Guardo archivo como shp*
+```{r}
+#SHP
+Viv_Com <- as.data.frame(Viv_Com)
+
+colnames(Viv_Com)
+
+Viv_Com <- st_as_sf(Viv_Com)
+
+class(Viv_Com$geometry)
+
+st_write(Viv_Com, "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Prueba_proyecto/Viv_com.shp", 
+         driver= "ESRI Shapefile",
+         fileEncoding = "UTF-8")
+
+
+#geom_name = Viv_Com$centroide, 
+Viv_Com2 <- st_read("Viv_com.shp")
+
+#Geojson
+Viv_Com <- geojson_json (Viv_Com2)
+geojson_write (Viv_Com, 
+               file = "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Prueba_proyecto/VIVCOM.geojson")
+
+
+```
+
+
+*11. Mapeo distribución porcentual de viviendas ocupadas con uso comercial*
+```{r}
+colnames(Viv_Com)
+str(Viv_Com)
+
+pal_Viv <- colorNumeric(palette = "YlOrRd", domain= Viv_Com$Comercio_oficina_consultorio)
+labels_Viv <- sprintf("<strong>%s</strong><br/>%s %% viviendas ocupadas <sup></sup>",
+  Viv_Com$Comuna, Viv_Com$Comercio_oficina_consultorio) %>% lapply(htmltools::HTML)
+              
+class(Comunas)
+class(Viv_Com$geometry)
+
+Geo_viv <- leaflet(Viv_Com$geometry) %>% 
+  setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolylines(data = Comunas, color="#FC750F", opacity = 1, weight = 2)%>%
+  addPolygons(data = Viv_Com$geometry, weight = 2, opacity = 1,
+              color = "#F5F1BA", dashArray = "3",
+              fillOpacity = 0.5,
+              highlight = highlightOptions(weight = 5, color = "#F5C9BA",
+                dashArray = "3",
+                fillOpacity = 0.7,
+                bringToFront = F),
+              label = labels_Viv) %>%  
+        addCircleMarkers(data = Viv_Com,
+                         color = ~pal_Viv(Comercio_oficina_consultorio),
+                         stroke = FALSE,
+                         fillOpacity = 1) %>%
+  addLegend(data = Viv_Com,
+                  "bottomright", 
+                  pal = pal_Viv, 
+                  values = ~Comercio_oficina_consultorio,
+                  title = "Comercios, oficinas y consultorios",
+                  opacity = 1) %>%
+        addLabelOnlyMarkers(data = Comunas,
+                            ~lat,~long,
+                            label =  ~as.character(Comuna), 
+                            labelOptions = labelOptions(noHide = T, size=1,
+                                                        direction='top',textOnly = F))
+
+Geo_viv
+
+htmlwidgets::saveWidget(Geo_viv,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Prueba_proyecto/Comercios_Mapa.html",
+                        selfcontained = T)
+
+```
+
+*13.  Mapeo distribución porcentual de viviendas ocupadas con uso comercial, con archivo importado shp*
+```{r}
+
+
+colnames(Viv_Com2)
+str(Viv_Com2)
+
+
+pal_Viv2 <- colorNumeric(palette = "YlOrRd", domain= Viv_Com2$Cmrc_f_)
+labels_Viv2 <- sprintf("<strong>%s</strong><br/>%s %% viviendas ocupadas por uso comercial <sup></sup>",
+  Viv_Com2$Comuna, Viv_Com2$Cmrc_f_) %>% lapply(htmltools::HTML)
+
+              
+class(Comunas)
+class(Viv_Com$geometry)
+class(Viv_Com2$geometry)
+
+Geo_viv2 <- leaflet(Viv_Com2$geometry) %>% 
+  setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolylines(data = Comunas, color="#FC750F", opacity = 1, weight = 2)%>%
+  addPolygons(data = Comunas$geometry, weight = 2, opacity = 1,
+              color = "#F5F1BA", dashArray = "3",
+              fillOpacity = 0.5,
+              highlight = highlightOptions(weight = 5, color = "#F5C9BA",
+                dashArray = "3",
+                fillOpacity = 0.7,
+                bringToFront = F),
+              label = labels_Viv2) %>%  
+        addCircleMarkers(data = Viv_Com2,
+                         color = ~pal_Viv2(Cmrc_f_),
+                         stroke = FALSE,
+                         fillOpacity = 1) %>%
+  addLegend(data = Viv_Com2,
+                  "bottomright", 
+                  pal = pal_Viv2, 
+                  values = ~Cmrc_f_,
+                  title = "Comercios, oficinas y consultorios",
+                  opacity = 1) %>%
+        addLabelOnlyMarkers(data = Comunas,
+                            ~lat,~long,
+                            label =  ~as.character(Comuna), 
+                            labelOptions = labelOptions(noHide = T, size=1,
+                                                        direction='top',textOnly = F))
+
+Geo_viv2
+
+htmlwidgets::saveWidget(Geo_viv2,
+                        "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Prueba_proyecto/Comercios_Mapa.html", selfcontained = T)
+
+```
+
