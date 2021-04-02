@@ -199,8 +199,7 @@ Geo_hosp <- leaflet(data = Hospitales_reducido) %>%
 
 ```
 
-*12.Agrego iconos según tipo de hospital.*
-#Para ello, primero creo variable numerica con tipo de hospital. 
+*12.Creo variable numerica con tipo de hospital y guardo como geojson.*
 ```{r}
 
 unique(Hospitales_reducido$TIPO)
@@ -212,6 +211,12 @@ Hospitales_reducido <- Hospitales_reducido %>%
     TIPO == "Hospital de agudos"~ "3"))
 
 Hospitales_reducido$TINUM <- as.numeric(Hospitales_reducido$TINUM)
+
+Hospitales_reducido <- Hospitales_reducido %>%
+  mutate(TIPO2 = case_when(
+    TIPO == "Hospital de niños"~ "Hospital pediatrico",
+    TIPO == "Hospital especializado"~ "Hospital especializado",
+    TIPO == "Hospital de agudos"~ "Hospital de agudos"))
 
 
 #Guardo archivo en SHP
@@ -229,6 +234,12 @@ Hospitales_reducido <- geojson_json (Hospitales_reducido)
 geojson_write (Hospitales_reducido, 
                file = "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Prueba_proyecto/HospitalesR.geojson")
 
+Hospitales_reducido <- st_read("HospitalesR.geojson")
+
+```
+
+*13.Agrego iconos según tipo de hospital.*
+```{r}
 
 getColor <- function(Hospitales_reducido) {
   sapply(Hospitales_reducido$TINUM, function(TINUM) {
@@ -250,17 +261,17 @@ icons <- awesomeIcons(
 Geo_hosp <- leaflet(data = Hospitales_reducido) %>% 
   setView(lng = -58.445531, lat = -34.606653, zoom = 11) %>%
   addProviderTiles(providers$CartoDB.Positron) %>%
-  addAwesomeMarkers(~long, ~lat, icon = icons, label = ~as.character(TIPO))
+  addAwesomeMarkers(~long, ~lat, icon = icons, label = ~as.character(TIPO2))
 
 htmlwidgets::saveWidget(Geo_hosp,
                         "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Hospitales_Mapa.html",
                         selfcontained = T)
 
-
 ```
 
 
-*13. Creo DF para agregar líneas según comuna.*
+
+*14. Creo DF para agregar líneas según comuna.*
 ```{r}
 
 Reducido_hospital <- point.in.poly(hospitales, Comunas)
