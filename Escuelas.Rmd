@@ -58,6 +58,8 @@ library(spatialEco)
 #Fecha de actualización: 2020.
 #Información geográfica de la locación (perímetro y área) de las comunas de la Ciudad establecidas a partir de la Ley Orgánica de Comunas (Ley Nº 1777/2005). Fuente EAH (Buenos Aires Data-GCBA).
 ```{r}
+rm(list = ls())
+
 Escuelas <- st_read("http://cdn.buenosaires.gob.ar/datosabiertos/datasets/establecimientos-educativos/establecimientos-educativos.geojson")
 Comunas<-st_read("https://cdn.buenosaires.gob.ar/datosabiertos/datasets/comunas/CABA_comunas.geojson")
 
@@ -108,7 +110,7 @@ Comunas <- Comunas %>%
 ```
 
 
-*7.Quiero ver cuántos hospitales hay por comuna.*
+*7.Quiero ver cuantas escelas hay por comuna.*
 ```{r}
 
 Esc_Com <- point.in.poly(Escuelas, Comunas)
@@ -164,7 +166,9 @@ mapa_escuelas
 ```{r}
 colnames(Escuelas)
 
-Escuelas_reducido<-Escuelas [,c(9,15,16,17,20,23,24,25,26,27,28,29)]
+Escuelas_reducido<-Escuelas [,c(9,15,16,17,20,23,24,25,26,27,28,29), encoding = "UTF-8"]
+
+rm(Escuelas)
 
 view(Escuelas_reducido)
 
@@ -181,7 +185,7 @@ Geo_esc <- leaflet(data = Escuelas_reducido) %>%
 ```
 
 
-*13. Creo variable general para reducir variables específicas y luego creo variable numérica con tales datos.*
+*12. Creo variable general para reducir variables específicas*
 ```{r}
 unique(Escuelas_reducido$NIVELMODAL)
 
@@ -235,10 +239,72 @@ Escuelas_reducido <- Escuelas_reducido %>%
     NIVELMODAL == "Nivel Secundario Común - Otros Servicios Educativos de la modalidad Común" ~ "Secundario",
     NIVELMODAL == "Nivel Primario y Secundario Especial" ~ "Primario a Secundario"))
 
+```
 
 
-#Creo variable numérica, con cantidad de niveles ofrecidos.
+*13. Modifico las variables para evitar errores en geojson.*
+```{r}
+unique(Escuelas_reducido$NIVELMODAL)
 
+Escuelas_reducido <- Escuelas_reducido %>%
+  mutate(NIVOF = case_when(
+    NIVELMODAL == "Nivel Secundario de Jóvenes y Adultos" ~ "Nivel Secundario de Jovenes y Adultos",
+    NIVELMODAL == "Nivel Secundario Común" ~ "Nivel Secundario Comun",
+    NIVELMODAL == "Nivel Inicial Común" ~ "Nivel Inicial Comun",
+    NIVELMODAL == "Otros Servicios Educativos de la modalidad Común" ~ "Otros Servicios Educativos de la modalidad Comun",
+    NIVELMODAL == "Nivel Primario Común" ~ "Nivel Primario Comun",
+    NIVELMODAL == "Nivel Inicial, Primario y Secundario Común" ~ "Nivel Inicial, Primario y Secundario Comun",
+    NIVELMODAL == "Nivel Inicial y Primario Común" ~ "Nivel Inicial y Primario Comun",
+    NIVELMODAL == "Nivel Primario de Jóvenes y Adultos" ~ "Nivel Primario de Jovenes y Adultos",
+    NIVELMODAL == "Nivel Primario de Jóvenes y Adultos - Otros Servicios Educativos de la modalidad de Jóvenes y Adultos" ~ "Nivel Primario de Jovenes y Adultos - Otros Servicios Educativos de la modalidad de Jovenes y Adultos",
+    NIVELMODAL == "Otros Servicios Educativos de la modalidad de Jóvenes y Adultos" ~ "Otros Servicios Educativos de la modalidad de Jovenes y Adultos",
+    NIVELMODAL == "Otros Servicios Educativos de las modalidades Común y de Jóvenes y Adultos" ~ "Otros Servicios Educativos de las modalidades Comun y de Jovenes y Adultos",
+    NIVELMODAL == "Nivel Superior No Universitario Común - Otros Servicios Educativos de la modalidad de Jóvenes y Adultos" ~ "Nivel Superior No Universitario Comun - Otros Servicios Educativos de la modalidad de Jovenes y Adultos",
+    NIVELMODAL == "Nivel Inicial Común - Otros Servicios Educativos de la modalidad Común" ~ "Nivel Inicial Comun - Otros Servicios Educativos de la modalidad Comun",
+    NIVELMODAL == "Nivel Superior No Universitario Común" ~ "Nivel Superior No Universitario Comun",
+    NIVELMODAL == "Nivel Superior No Universitario Común - Otros Servicios Educativos de la modalidad Común" ~ "Nivel Superior No Universitario Comun - Otros Servicios Educativos de la modalidad Comun",                        NIVELMODAL == "Nivel Inicial y Primario Especial" ~ "Nivel Inicial y Primario Especial",                       NIVELMODAL == "Nivel Primario Especial - Otros Servicios Educativos de la modalidad Especial" ~ "Nivel Primario Especial - Otros Servicios Educativos de la modalidad Especial",
+    NIVELMODAL == "Otros Servicios Educativos de la modalidad Común - Otros Servicios Educativos de la modalidad de Jóvenes y Adultos" ~ "Otros Servicios Educativos de la modalidad Comun - Otros Servicios Educativos de la modalidad de Jovenes y Adultos",
+    NIVELMODAL == "Nivel Inicial, Primario, Secundario y Terciario No Universitario Común" ~ "Nivel Inicial, Primario, Secundario y Terciario No Universitario Comun",
+    NIVELMODAL == "Nivel Inicial y Secundario Común" ~ "Nivel Inicial y Secundario Comun",
+    NIVELMODAL == "Nivel Secundario Común - Nivel Secundario de Jóvenes y Adultos" ~ "Nivel Secundario Comun - Nivel Secundario de Jovenes y Adultos",                 
+    NIVELMODAL == "Nivel Inicial, Primario, Secundario y Superior No Universitario Común" ~ "Nivel Inicial, Primario, Secundario y Superior No Universitario Comun",                                                
+    NIVELMODAL == "Nivel Inicial, Primario y Secundario Común - Nivel Secundario de Jóvenes y Adultos" ~ "Nivel Inicial, Primario y Secundario Comun - Nivel Secundario de Jovenes y Adultos",
+    NIVELMODAL == "Nivel Primario Especial" ~ "Nivel Primario Especial",                                           NIVELMODAL == "Nivel Secundario de Jóvenes y Adultos - Nivel Superior No Universitario Común - Otros Servicios Educativos de la modalidad de Jóvenes y Adultos" ~ "Nivel Secundario de Jovenes y Adultos - Nivel Superior No Universitario Comun - Otros Servicios Educativos de la modalidad de Jovenes y Adultos",
+    NIVELMODAL == "Nivel Primario, Secundario y Superior No Universitario Común" ~ "Nivel Primario, Secundario y Superior No Universitario Comun",
+    NIVELMODAL == "Nivel Inicial y Primario Especial - Otros Servicios Educativos de la modalidad Especial" ~ "Nivel Inicial y Primario Especial - Otros Servicios Educativos de la modalidad Especial",
+    NIVELMODAL == "Nivel Inicial, Primario, Secundario  y Superior No Universitario Común - Nivel Primario y Secundario Especial" ~ "Nivel Inicial, Primario, Secundario  y Superior No Universitario Comun - Nivel Primario y Secundario Especial",              
+    NIVELMODAL == "Otros Servicios Educativos de la modalidad Especial" ~ "Otros Servicios Educativos de la modalidad Especial",
+    NIVELMODAL == "Nivel Secundario Común -Nivel Secundario de Jóvenes y Adultos" ~ "Nivel Secundario Comun -Nivel Secundario de Jovenes y Adultos",
+    NIVELMODAL == "Nivel Secundario Común - Nivel Superior No Universitario Común - Otros Servicios Educativos de las modalidadades Común y de Jóvenes y Adultos" ~ "Nivel Secundario Comun - Nivel Superior No Universitario Comun - Otros Servicios Educativos de las modalidadades Comun y de Jovenes y Adultos",    
+    NIVELMODAL == "Nivel Secundario Común - Nivel Superior No Universitario Común - Otros Servicios Educativos de la modalidad Común" ~ "Nivel Secundario Comun - Nivel Superior No Universitario Comun - Otros Servicios Educativos de la modalidad Comun", 
+    NIVELMODAL == "Nivel Inicial Especial" ~ "Nivel Inicial Especial",
+    NIVELMODAL == "Nivel Inicial" ~ "Nivel Inicial",
+    NIVELMODAL == "Nivel Secundario y Superior No Universitario Común - Nivel Secundario de Jóvenes y Adultos" ~ "Nivel Secundario y Superior No Universitario Comun - Nivel Secundario de Jovenes y Adultos",
+    NIVELMODAL == "Nivel Primario y Secundario Común" ~ "Nivel Primario y Secundario Comun",
+    NIVELMODAL == "Nivel Inicial, Primario y Secundario Común - Nivel Primario de Jóvenes y Adultos" ~ "Nivel Inicial, Primario y Secundario Comun - Nivel Primario de Jovenes y Adultos",
+    NIVELMODAL == "Nivel Inicial y Primario Especial - Nivel Secundario Común" ~ "Nivel Inicial y Primario Especial - Nivel Secundario Comun",
+    NIVELMODAL == "Nivel Secundario Común - Otros Servicios Educativos de las modalidadades Común y de Jóvenes y Adultos" ~ "Nivel Secundario Comun - Otros Servicios Educativos de las modalidadades Comun y de Jovenes y Adultos",
+    NIVELMODAL == "Nivel Secundario Común - Otros Servicios Educativos de la modalidad de Jóvenes y Adultos" ~ "Nivel Secundario Comun - Otros Servicios Educativos de la modalidad de Jovenes y Adultos",
+    NIVELMODAL == "Nivel Inicial y Superior No Universitario Común" ~ "Nivel Inicial y Superior No Universitario Comun",
+    NIVELMODAL == "Nivel Secundario Común - Nivel Secundario de Jóvenes y Adultos - Nivel Superior No Universitario Común - Otros Servicios Educativos de la modalidad Común" ~ "Nivel Secundario Comun - Nivel Secundario de Jovenes y Adultos - Nivel Superior No Universitario Comun - Otros Servicios Educativos de la modalidad Comun", 
+    NIVELMODAL == "Nivel Secundario de Jóvenes y Adultos - Nivel Superior No Universitario Común" ~ "Nivel Secundario de Jovenes y Adultos - Nivel Superior No Universitario Comun",
+    NIVELMODAL == "Nivel Secundario y Superior No Universitario Común" ~ "Nivel Secundario y Superior No Universitario Comun",                  
+    NIVELMODAL == "Nivel Inicial y Primario Común - Nivel Primario de Jóvenes y Adultos" ~ "Nivel Inicial y Primario Comun - Nivel Primario de Jovenes y Adultos",                                                             NIVELMODAL == "Nivel Inicial y Primario Común - Nivel Primario Especial - Otros Servicios Educativos de la modalidad Común" ~ "Nivel Inicial y Primario Comun - Nivel Primario Especial - Otros Servicios Educativos de la modalidad Comun",
+    NIVELMODAL == "Nivel Inicial y Primario Especial - Nivel Secundario de Jóvenes y Adultos - Otros Servicios Educativos de la modalidad Especial" ~ "Nivel Inicial y Primario Especial - Nivel Secundario de Jovenes y Adultos - Otros Servicios Educativos de la modalidad Especial",
+    NIVELMODAL == "Nivel Inicial, Primario y Secundario Especial - Otros Servicios Educativos de la modalidad Especial" ~ "Nivel Inicial, Primario y Secundario Especial - Otros Servicios Educativos de la modalidad Especial",
+    NIVELMODAL == "Nivel Inicial, Primario, Secundario y Superior No Universitario Común - Nivel Secundario de Jóvenes y Adultos" ~ "Nivel Inicial, Primario, Secundario y Superior No Universitario Comun - Nivel Secundario de Jovenes y Adultos",                                                                         
+    NIVELMODAL == "Nivel Inicial, Primario y Secundario Común - Nivel Primario y Secundario de Jóvenes y Adultos" ~ "Nivel Inicial, Primario y Secundario Comun - Nivel Primario y Secundario de Jovenes y Adultos",    
+    NIVELMODAL == "Nivel Inicial, Primario, Secundario Común - Nivel Secundario de Jóvenes y Adultos" ~ "Nivel Inicial, Primario, Secundario Comun - Nivel Secundario de Jovenes y Adultos",                            
+    NIVELMODAL == "Nivel Primario y Secundario de Jóvenes y Adultos" ~ "Nivel Primario y Secundario de Jovenes y Adultos", 
+    NIVELMODAL == "Nivel Secundario Común - Otros Servicios Educativos de la modalidad Común" ~ "Nivel Secundario Comun - Otros Servicios Educativos de la modalidad Comun",
+    NIVELMODAL == "Nivel Primario y Secundario Especial" ~ "Nivel Primario y Secundario Especial"))
+
+unique(Escuelas_reducido$NIVOF)
+
+```
+
+*14. Creo variable numérica, con cantidad de niveles ofrecidos.*
+```{r}
 unique(Escuelas_reducido$niv)
 
 Escuelas_reducido <- Escuelas_reducido %>%
@@ -264,10 +330,10 @@ unique(Escuelas_reducido$num_niv)
 Escuelas_reducido$num_niv <- as.numeric(Escuelas_reducido$num_niv)
 
 str(Escuelas_reducido)
-
 ```
 
-*13.Son demasiados registros, por lo que selecciono muestra alaeatoria con el 40% para mejorar la visualización.*
+
+*15.Son demasiados registros, por lo que selecciono muestra alaeatoria con el 40% para mejorar la visualización.*
 
 ```{r}
 Muestra_escuelas <- sample_n(Escuelas_reducido, 848)
@@ -278,10 +344,10 @@ st_as_sf(x = Muestra_escuelas,
 
 st_write(Muestra_escuelas, 
          geom_name = Muestra_escuelas$geometry,
-         "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Prueba_proyecto/MuestraEsc.shp")
+         "/Users/Melina/OneDrive/Documentos/Proyectos R/Proyecto final/Prueba_proyecto/MuestraEscu.shp")
 
 #Convierto SHP en Geojson
-Muestra_escuelas<- st_read("MuestraEsc.shp")
+Muestra_escuelas<- st_read("MuestraEscu.shp")
 Muestra_escuelas <- geojson_json (Muestra_escuelas)
 #Muestra_escuelas <- ms_simplify (Muestra_escuelas, keep = 0.5)
 geojson_write (Muestra_escuelas, 
