@@ -1,4 +1,4 @@
-# CABA_Accesos
+# Análisis cuantitativo y/o espacial de variables socioeconómicas en CABA.
 
 El repositorio incluye un análisis cuantitativo y/o espacial de cinco variables de interés social en la Ciudad Autónoma de Buenos Aires: 
 
